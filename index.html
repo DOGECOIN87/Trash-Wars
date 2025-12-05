@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gorbagana: Trash Wars</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rubik:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Rubik', sans-serif;
+        overflow: hidden;
+        background-color: #0a1f26; /* Start color */
+      }
+      .pixel-font {
+        font-family: 'Press Start 2P', cursive;
+      }
+      /* Seamless Scrolling Text */
+      @keyframes scroll-left {
+        from { transform: translateX(0); }
+        to { transform: translateX(-50%); }
+      }
+      @keyframes scroll-right {
+        from { transform: translateX(-50%); }
+        to { transform: translateX(0); }
+      }
+      .animate-scroll-left {
+        animation: scroll-left 20s linear infinite;
+      }
+      .animate-scroll-right {
+        animation: scroll-right 20s linear infinite;
+      }
+      /* Outlined Text Styles */
+      .outline-text-white {
+        -webkit-text-stroke: 1px rgba(255, 255, 255, 0.3);
+        color: transparent;
+      }
+      .outline-text-green {
+        -webkit-text-stroke: 1px rgba(74, 222, 128, 0.4);
+        color: transparent;
+        text-shadow: 0 0 15px rgba(74, 222, 128, 0.1);
+      }
+      /* Background Color Cycle (Dark Teal <-> Dark Magenta) */
+      @keyframes color-cycle {
+        0% { background-color: #0a1f26; } 
+        50% { background-color: #260a1f; } 
+        100% { background-color: #0a1f26; }
+      }
+      .animate-color-cycle {
+        animation: color-cycle 20s infinite ease-in-out;
+      }
+      /* Custom Scrollbar for Gorbag */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #000; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333; 
+        border-radius: 4px;
+      }
+      ::-webkit-scrollbar-thumb:hover {
+        background: #555; 
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
+    "animejs": "https://aistudiocdn.com/animejs@^3.2.2"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
