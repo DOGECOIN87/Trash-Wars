@@ -1,14 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Player, TrashItem, Particle, Vector, GameState, Virus, EjectedMass, Portal, LootItem } from '../types';
-import { 
-  WORLD_SIZE, BASE_PLAYER_MASS, TRASH_COUNT, BOT_COUNT, TRASH_TYPES, COLORS, 
-  BOT_NAMES, BOT_SKINS, MAX_CELLS_PER_PLAYER, RECOMBINE_TIME_MS, 
+import {
+  WORLD_SIZE, BASE_PLAYER_MASS, TRASH_COUNT, BOT_COUNT, TRASH_TYPES, COLORS,
+  BOT_NAMES, BOT_SKINS, MAX_CELLS_PER_PLAYER, RECOMBINE_TIME_MS,
   VIRUS_MASS, EJECT_MASS, EJECT_COST, MIN_MASS_SPLIT, MIN_MASS_EJECT,
   BASE_SPEED, INERTIA, DECAY_RATE, massToRadius
 } from '../constants';
 import { generateTrashTalk } from '../services/geminiService';
 import { MessageCircle, Timer, Zap, Shield } from 'lucide-react';
 import { useAudio } from '../hooks/useAudio';
+import { usePhysics } from '../hooks/usePhysics';
 
 interface GameCanvasProps {
   gameState: GameState;
@@ -35,9 +36,12 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, setGameState, setSco
   const [leaderboard, setLeaderboard] = useState<{name: string, score: number, id: string}[]>([]);
   const [heroImage, setHeroImage] = useState<HTMLImageElement | null>(null);
   const [isInvincible, setIsInvincible] = useState(false);
-  
+
   // Audio
   const { playEat, playSplit, playEject, playVirus, playCashOut } = useAudio();
+
+  // WASM Physics
+  const { physics, isReady: physicsReady, error: physicsError } = usePhysics();
   
   // Game Objects
   const playersRef = useRef<Player[]>([]);
@@ -80,6 +84,15 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, setGameState, setSco
         setHeroImage(null);
     }
   }, [playerAvatar]);
+
+  // Log WASM physics status
+  useEffect(() => {
+    if (physicsError) {
+      console.warn('⚠️ WASM Physics failed to load, using JavaScript fallback:', physicsError);
+    } else if (physicsReady && physics) {
+      console.log('✅ WASM Physics initialized successfully');
+    }
+  }, [physicsReady, physicsError, physics]);
 
   // Input Listeners
   useEffect(() => {
@@ -536,6 +549,29 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, setGameState, setSco
     playersRef.current.sort((a,b) => b.mass - a.mass);
     const deadIds: string[] = [];
 
+    // === WASM PHYSICS: Populate spatial grid and get all collision pairs ===
+    const playerCollisionPairs: [number, number][] = [];
+    if (physics && physicsReady) {
+      physics.clear();
+      playersRef.current.forEach((p, idx) => {
+        physics.add_entity(idx, p.pos.x, p.pos.y, p.radius, p.mass);
+      });
+      physics.update_spatial_grid();
+
+      // Get all collision pairs from WASM (O(n log n) with spatial grid)
+      const collisions = physics.check_collisions();
+      for (let k = 0; k < collisions.length; k += 2) {
+        const idx1 = collisions[k];
+        const idx2 = collisions[k + 1];
+        // Only add if larger index first (avoid duplicates)
+        if (idx1 > idx2) {
+          playerCollisionPairs.push([idx1, idx2]);
+        } else {
+          playerCollisionPairs.push([idx2, idx1]);
+        }
+      }
+    }
+
     for (let i = 0; i < playersRef.current.length; i++) {
         const p1 = playersRef.current[i];
         if (deadIds.includes(p1.id)) continue;
@@ -646,65 +682,129 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, setGameState, setSco
              }
         }
 
-        // Player vs Player
-        for (let j = 0; j < playersRef.current.length; j++) {
+        // === Player vs Player collision (using WASM if available) ===
+        // Check if this player collides with any other player
+        if (physics && physicsReady) {
+          // Use pre-computed WASM collision pairs
+          const pairsForThisPlayer = playerCollisionPairs.filter(
+            ([idx1, idx2]) => idx1 === i || idx2 === i
+          );
+
+          for (const [idx1, idx2] of pairsForThisPlayer) {
+            const p2 = playersRef.current[idx1 === i ? idx2 : idx1];
+            if (!p2 || deadIds.includes(p2.id)) continue;
+
+            const dist = Math.hypot(p1.pos.x - p2.pos.x, p1.pos.y - p2.pos.y);
+
+            // Merge (same owner)
+            if (p1.ownerId === p2.ownerId) {
+              if (dist < p1.radius + p2.radius) {
+                if (now > p1.mergeTimestamp && now > p2.mergeTimestamp && dist < (p1.radius + p2.radius) / 2) {
+                  p1.mass += p2.mass;
+                  p1.radius = massToRadius(p1.mass);
+                  deadIds.push(p2.id);
+                  createParticles(p1.pos.x, p1.pos.y, p1.color, 10, 2);
+                  p1.impactScale = 1.1;
+                } else {
+                  // Push apart (Softer)
+                  const overlap = (p1.radius + p2.radius - dist);
+                  const force = overlap * 0.05 * timeScale;
+                  const dx = (p1.pos.x - p2.pos.x) / dist || 1;
+                  const dy = (p1.pos.y - p2.pos.y) / dist || 0;
+
+                  p1.pos.x += dx * force * 0.5;
+                  p1.pos.y += dy * force * 0.5;
+                  p2.pos.x -= dx * force * 0.5;
+                  p2.pos.y -= dy * force * 0.5;
+                }
+              }
+              continue;
+            }
+
+            // Eat (different owners)
+            if (p1.mass > p2.mass * 1.10) {
+              if (p2.invincibleUntil && now < p2.invincibleUntil) continue;
+
+              if (dist < p1.radius - p2.radius * 0.4) {
+                p1.mass += p2.mass;
+                p1.radius = massToRadius(p1.mass);
+                deadIds.push(p2.id);
+                createParticles(p2.pos.x, p2.pos.y, p2.color, 20, 5);
+
+                if (p1.ownerId === 'hero' || p2.ownerId === 'hero') {
+                  shakeRef.current += Math.min(p2.radius, 4);
+                  p1.impactScale = 1.1;
+                  if (p1.ownerId === 'hero') playEat();
+
+                  if (Math.random() > 0.6) {
+                    generateTrashTalk(p1.name, p2.name).then(t => {
+                      p1.trashTalk = t;
+                      p1.trashTalkTimer = 200;
+                    });
+                  }
+                }
+              }
+            }
+          }
+        } else {
+          // JavaScript fallback: O(n²) collision detection
+          for (let j = 0; j < playersRef.current.length; j++) {
             if (i === j) continue;
             const p2 = playersRef.current[j];
             if (deadIds.includes(p2.id)) continue;
-            
+
             const dist = Math.hypot(p1.pos.x - p2.pos.x, p1.pos.y - p2.pos.y);
 
-            // Merge
+            // Merge (same owner)
             if (p1.ownerId === p2.ownerId) {
-                if (dist < p1.radius + p2.radius) {
-                     if (now > p1.mergeTimestamp && now > p2.mergeTimestamp && dist < (p1.radius + p2.radius) / 2) {
-                         p1.mass += p2.mass;
-                         p1.radius = massToRadius(p1.mass);
-                         deadIds.push(p2.id);
-                         createParticles(p1.pos.x, p1.pos.y, p1.color, 10, 2);
-                         p1.impactScale = 1.1; // Merge gloop
-                     } else {
-                         // Push apart (Softer)
-                         const overlap = (p1.radius + p2.radius - dist);
-                         const force = overlap * 0.05 * timeScale; // Softer push
-                         const dx = (p1.pos.x - p2.pos.x) / dist || 1;
-                         const dy = (p1.pos.y - p2.pos.y) / dist || 0;
-                         
-                         p1.pos.x += dx * force * 0.5;
-                         p1.pos.y += dy * force * 0.5;
-                         p2.pos.x -= dx * force * 0.5;
-                         p2.pos.y -= dy * force * 0.5;
-                     }
+              if (dist < p1.radius + p2.radius) {
+                if (now > p1.mergeTimestamp && now > p2.mergeTimestamp && dist < (p1.radius + p2.radius) / 2) {
+                  p1.mass += p2.mass;
+                  p1.radius = massToRadius(p1.mass);
+                  deadIds.push(p2.id);
+                  createParticles(p1.pos.x, p1.pos.y, p1.color, 10, 2);
+                  p1.impactScale = 1.1;
+                } else {
+                  // Push apart (Softer)
+                  const overlap = (p1.radius + p2.radius - dist);
+                  const force = overlap * 0.05 * timeScale;
+                  const dx = (p1.pos.x - p2.pos.x) / dist || 1;
+                  const dy = (p1.pos.y - p2.pos.y) / dist || 0;
+
+                  p1.pos.x += dx * force * 0.5;
+                  p1.pos.y += dy * force * 0.5;
+                  p2.pos.x -= dx * force * 0.5;
+                  p2.pos.y -= dy * force * 0.5;
                 }
-                continue;
+              }
+              continue;
             }
 
-            // Eat
+            // Eat (different owners)
             if (p1.mass > p2.mass * 1.10) {
-                 // INVINCIBILITY CHECK
-                 if (p2.invincibleUntil && now < p2.invincibleUntil) continue;
+              if (p2.invincibleUntil && now < p2.invincibleUntil) continue;
 
-                 // Easier eat threshold
-                 if (dist < p1.radius - p2.radius * 0.4) {
-                     p1.mass += p2.mass;
-                     p1.radius = massToRadius(p1.mass);
-                     deadIds.push(p2.id);
-                     createParticles(p2.pos.x, p2.pos.y, p2.color, 20, 5);
-                     
-                     if (p1.ownerId === 'hero' || p2.ownerId === 'hero') {
-                         shakeRef.current += Math.min(p2.radius, 4); // Capped shake
-                         p1.impactScale = 1.1;
-                         if (p1.ownerId === 'hero') playEat();
-                         
-                         if(Math.random() > 0.6) {
-                            generateTrashTalk(p1.name, p2.name).then(t => {
-                                p1.trashTalk = t;
-                                p1.trashTalkTimer = 200;
-                            });
-                         }
-                     }
-                 }
+              if (dist < p1.radius - p2.radius * 0.4) {
+                p1.mass += p2.mass;
+                p1.radius = massToRadius(p1.mass);
+                deadIds.push(p2.id);
+                createParticles(p2.pos.x, p2.pos.y, p2.color, 20, 5);
+
+                if (p1.ownerId === 'hero' || p2.ownerId === 'hero') {
+                  shakeRef.current += Math.min(p2.radius, 4);
+                  p1.impactScale = 1.1;
+                  if (p1.ownerId === 'hero') playEat();
+
+                  if (Math.random() > 0.6) {
+                    generateTrashTalk(p1.name, p2.name).then(t => {
+                      p1.trashTalk = t;
+                      p1.trashTalkTimer = 200;
+                    });
+                  }
+                }
+              }
             }
+          }
         }
     }
 
