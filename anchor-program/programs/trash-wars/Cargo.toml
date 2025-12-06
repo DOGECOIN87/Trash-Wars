@@ -1,0 +1,19 @@
+[package]
+name = "trash-wars"
+version = "0.1.0"
+description = "Trash Wars - Solana smart contract for agar.io-style game with wagers"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "trash_wars"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.29.0"
