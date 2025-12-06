@@ -1,0 +1,34 @@
+/* tslint:disable */
+/* eslint-disable */
+export const memory: WebAssembly.Memory;
+export const __wbg_entity_free: (a: number, b: number) => void;
+export const __wbg_get_entity_id: (a: number) => number;
+export const __wbg_get_entity_mass: (a: number) => number;
+export const __wbg_get_entity_radius: (a: number) => number;
+export const __wbg_get_entity_x: (a: number) => number;
+export const __wbg_get_entity_y: (a: number) => number;
+export const __wbg_physicsworld_free: (a: number, b: number) => void;
+export const __wbg_set_entity_id: (a: number, b: number) => void;
+export const __wbg_set_entity_mass: (a: number, b: number) => void;
+export const __wbg_set_entity_radius: (a: number, b: number) => void;
+export const __wbg_set_entity_x: (a: number, b: number) => void;
+export const __wbg_set_entity_y: (a: number, b: number) => void;
+export const entity_new: (a: number, b: number, c: number, d: number, e: number) => number;
+export const physicsworld_add_entity: (a: number, b: number, c: number, d: number, e: number, f: number) => void;
+export const physicsworld_batchDistances: (a: number, b: number) => [number, number];
+export const physicsworld_check_collisions: (a: number) => [number, number];
+export const physicsworld_clear: (a: number) => void;
+export const physicsworld_findNearest: (a: number, b: number, c: number, d: number) => number;
+export const physicsworld_getDistance: (a: number, b: number, c: number, d: number) => number;
+export const physicsworld_getEntityCount: (a: number) => number;
+export const physicsworld_getEntityIds: (a: number) => [number, number];
+export const physicsworld_new: () => number;
+export const physicsworld_pointInCircle: (a: number, b: number, c: number, d: number, e: number) => number;
+export const physicsworld_remove_entity: (a: number, b: number) => void;
+export const physicsworld_update_spatial_grid: (a: number) => void;
+export const init_panic_hook: () => void;
+export const __wbindgen_free: (a: number, b: number, c: number) => void;
+export const __wbindgen_malloc: (a: number, b: number) => number;
+export const __wbindgen_realloc: (a: number, b: number, c: number, d: number) => number;
+export const __wbindgen_externrefs: WebAssembly.Table;
+export const __wbindgen_start: () => void;

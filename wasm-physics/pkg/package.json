@@ -1,0 +1,15 @@
+{
+  "name": "trash-wars-physics",
+  "type": "module",
+  "version": "0.1.0",
+  "files": [
+    "trash_wars_physics_bg.wasm",
+    "trash_wars_physics.js",
+    "trash_wars_physics.d.ts"
+  ],
+  "main": "trash_wars_physics.js",
+  "types": "trash_wars_physics.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ]
+}
