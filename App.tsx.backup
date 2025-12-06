@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
-import { WalletProvider } from './providers/WalletProvider';
 import GameCanvas from './components/GameCanvas';
 import MainMenu from './components/MainMenu';
 import { GameState, LootItem } from './types';
 import { Coins, Backpack, Gem } from 'lucide-react';
 
-const AppContent: React.FC = () => {
+const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
   const [score, setScore] = useState(0);
   const [playerName, setPlayerName] = useState("");
@@ -136,14 +135,6 @@ const AppContent: React.FC = () => {
       )}
 
     </div>
-  );
-};
-
-const App: React.FC = () => {
-  return (
-    <WalletProvider>
-      <AppContent />
-    </WalletProvider>
   );
 };
 
