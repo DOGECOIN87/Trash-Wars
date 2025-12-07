@@ -32,22 +32,25 @@
       }
       /* Outlined Text Styles */
       .outline-text-white {
-        -webkit-text-stroke: 1px rgba(255, 255, 255, 0.3);
-        color: transparent;
+        -webkit-text-stroke: 1px rgba(255, 255, 255, 0.8);
+        color: rgba(255, 255, 255, 0.25);
+        text-shadow: 0 0 20px rgba(255, 255, 255, 0.4);
       }
       .outline-text-green {
         -webkit-text-stroke: 1px rgba(74, 222, 128, 0.4);
         color: transparent;
         text-shadow: 0 0 15px rgba(74, 222, 128, 0.1);
       }
-      /* Background Color Cycle (Dark Teal <-> Dark Magenta) */
+      /* Background Color Cycle (Full Spectrum HSL) */
       @keyframes color-cycle {
-        0% { background-color: #0a1f26; } 
-        50% { background-color: #260a1f; } 
-        100% { background-color: #0a1f26; }
+        0% { background-color: hsl(0, 40%, 8%); } 
+        25% { background-color: hsl(90, 40%, 8%); } 
+        50% { background-color: hsl(180, 40%, 8%); } 
+        75% { background-color: hsl(270, 40%, 8%); } 
+        100% { background-color: hsl(360, 40%, 8%); }
       }
       .animate-color-cycle {
-        animation: color-cycle 20s infinite ease-in-out;
+        animation: color-cycle 60s infinite linear;
       }
       /* Custom Scrollbar for Gorbag */
       ::-webkit-scrollbar {

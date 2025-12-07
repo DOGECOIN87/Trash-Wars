@@ -31,6 +31,7 @@ interface Star {
 
 const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, setGameState, setScore, playerName, playerColor, playerAvatar, wager, onLootCollected }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [camera, setCamera] = useState<Vector>({ x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 });
   const [leaderboard, setLeaderboard] = useState<{name: string, score: number, id: string}[]>([]);
   const [heroImage, setHeroImage] = useState<HTMLImageElement | null>(null);
@@ -787,21 +788,25 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, setGameState, setSco
     setCamera({ x: newCamX, y: newCamY });
 
     // DYNAMIC BACKGROUND COLOR CYCLE
-    // Complementary Dark Colors: Dark Teal (#0a1f26) <-> Dark Magenta (#260a1f)
-    const t = Date.now() * 0.0002;
-    const factor = (Math.sin(t) + 1) / 2; // Oscillate 0 to 1
-    const r = Math.floor(10 + (38 - 10) * factor);
-    const g = Math.floor(31 + (10 - 31) * factor);
-    const b = Math.floor(38 + (31 - 38) * factor);
+    // Complementary Logic: Hue rotates, Grid is complementary (+180), Accents are Split/Triadic
+    const t = Date.now() * 0.005; 
+    const baseHue = t % 360;
     
-    ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+    // Background: Dark, desaturated version of current hue
+    const bgFill = `hsl(${baseHue}, 30%, 8%)`;
+    ctx.fillStyle = bgFill;
     ctx.fillRect(0, 0, width, height);
+    
+    // Update CSS variables for UI sync
+    if (containerRef.current) {
+        containerRef.current.style.setProperty('--dynamic-hue', baseHue.toFixed(1));
+        containerRef.current.style.setProperty('--dynamic-comp', ((baseHue + 180) % 360).toFixed(1));
+        containerRef.current.style.setProperty('--dynamic-accent', ((baseHue + 90) % 360).toFixed(1));
+    }
 
     // Parallax Stars (Background)
     ctx.fillStyle = '#ffffff';
     starsRef.current.forEach(star => {
-        // Calculate parallax position
-        // Move opposite to camera. Far stars (layer 0) move slower.
         const speed = star.layer === 0 ? 0.05 : 0.15;
         const offsetX = (star.x - newCamX * speed + WORLD_SIZE * 10) % width;
         const offsetY = (star.y - newCamY * speed + WORLD_SIZE * 10) % height;
@@ -825,9 +830,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, setGameState, setSco
     ctx.scale(targetScale, targetScale);
     ctx.translate(-newCamX, -newCamY);
 
-    // Grid (Cyberpunk Style)
+    // Grid (Dynamic Complementary Color)
     ctx.lineWidth = 4;
-    ctx.strokeStyle = COLORS.grid;
+    const gridHue = (baseHue + 180) % 360;
+    ctx.strokeStyle = `hsl(${gridHue}, 20%, 15%)`;
+    
     const gridSize = 100;
     const viewW = width / targetScale;
     const viewH = height / targetScale;
@@ -845,8 +852,9 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, setGameState, setSco
     }
     ctx.stroke();
 
-    // Map Border
-    ctx.strokeStyle = '#ef4444';
+    // Map Border (Dynamic Accent Color)
+    const accentHue = (baseHue + 90) % 360;
+    ctx.strokeStyle = `hsl(${accentHue}, 70%, 50%)`;
     ctx.lineWidth = 50;
     ctx.strokeRect(0,0, WORLD_SIZE, WORLD_SIZE);
 
@@ -1131,19 +1139,25 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, setGameState, setSco
   }, []);
 
   return (
-    <>
+    <div ref={containerRef} className="relative w-full h-full">
       <canvas ref={canvasRef} className="fixed top-0 left-0 w-full h-full cursor-crosshair" />
       
       {gameState === GameState.PLAYING && (
         <>
-            {/* Leaderboard */}
-            <div className="fixed top-4 right-4 bg-zinc-900/80 backdrop-blur-md text-green-400 p-4 rounded-lg border border-green-600/30 font-mono text-sm z-10 w-64 shadow-2xl">
-                <h3 className="text-center border-b border-green-800 pb-2 mb-2 flex justify-between items-center text-xs tracking-widest uppercase">
+            {/* Leaderboard - Dynamic Color Accents */}
+            <div 
+                className="fixed top-4 right-4 bg-zinc-900/80 backdrop-blur-md p-4 rounded-lg border font-mono text-sm z-10 w-64 shadow-2xl transition-colors duration-100"
+                style={{ 
+                    borderColor: 'hsl(var(--dynamic-comp), 50%, 20%)', 
+                    color: 'hsl(var(--dynamic-accent), 80%, 70%)' 
+                }}
+            >
+                <h3 className="text-center border-b pb-2 mb-2 flex justify-between items-center text-xs tracking-widest uppercase" style={{ borderColor: 'hsl(var(--dynamic-comp), 50%, 20%)' }}>
                     <span>Sector 7 Leaderboard</span>
                 </h3>
                 <ol className="space-y-1">
                     {leaderboard.map((p, i) => (
-                    <li key={p.id} className={`flex justify-between ${p.name === playerName ? 'text-yellow-400 font-bold scale-105 origin-left' : 'text-zinc-300'}`}>
+                    <li key={p.id} className={`flex justify-between ${p.name === playerName ? 'font-bold scale-105 origin-left text-white' : 'text-zinc-300'}`}>
                         <span>{i+1}. {p.name.slice(0, 12)}</span>
                         <span>{Math.floor(p.score)}</span>
                     </li>
@@ -1151,8 +1165,11 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, setGameState, setSco
                 </ol>
             </div>
             
-            {/* Minimap */}
-            <div className="fixed bottom-4 right-4 w-48 h-48 bg-black/80 border border-zinc-700 rounded-lg overflow-hidden z-10 opacity-90 shadow-2xl">
+            {/* Minimap - Dynamic Color Accents */}
+            <div 
+                className="fixed bottom-4 right-4 w-48 h-48 bg-black/80 border rounded-lg overflow-hidden z-10 opacity-90 shadow-2xl transition-colors duration-100"
+                style={{ borderColor: 'hsl(var(--dynamic-comp), 50%, 30%)' }}
+            >
                 {/* Dots */}
                 {playersRef.current.filter(p => p.ownerId === 'hero').map(p => (
                     <div key={p.id} className="absolute w-1.5 h-1.5 bg-green-500 rounded-full shadow-[0_0_5px_#22c55e]" 
@@ -1209,7 +1226,7 @@ const GameCanvas: React.FC<GameCanvasProps> = ({ gameState, setGameState, setSco
             )}
         </>
       )}
-    </>
+    </div>
   );
 };
 

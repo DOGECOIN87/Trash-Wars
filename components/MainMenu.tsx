@@ -223,16 +223,64 @@ const MainMenu: React.FC<MainMenuProps> = ({
     });
   };
 
-  const handleStartGame = () => {
-    // Zoom into the glass
-    anime({
-        targets: '#main-menu-container',
-        opacity: 0,
-        scale: 2,
-        duration: 800,
-        easing: 'easeInExpo',
+  const handleStartGame = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent double triggering if animation is already running (simple check)
+    if (anime.running.length > 5) return; 
+
+    const btn = e.currentTarget;
+    const spinner = btn.querySelector('.spin-target');
+    const icon = btn.querySelector('.icon-target');
+
+    const tl = anime.timeline({
         complete: () => setGameState(GameState.PLAYING)
     });
+
+    // Phase 1: CHARGE (0ms - 500ms)
+    // Squeeze the button, spin the ring violently, brighten the icon
+    tl.add({
+        targets: btn,
+        scale: [1, 0.85], // Compress energy
+        duration: 500,
+        easing: 'easeOutQuart'
+    })
+    .add({
+        targets: spinner,
+        rotate: '3turn', // 3 full fast rotations
+        opacity: [0.5, 1],
+        duration: 800, // Extends slightly into launch
+        easing: 'easeInExpo'
+    }, 0)
+    .add({
+        targets: icon,
+        scale: 1.5,
+        color: '#ffffff',
+        duration: 500,
+        easing: 'easeInBack'
+    }, 0)
+    .add({
+        targets: '#main-menu-container',
+        scale: [1, 0.95], // Subtle zoom out of the whole world (anticipation)
+        duration: 500,
+        easing: 'easeOutQuad'
+    }, 0);
+
+    // Phase 2: LAUNCH (500ms - 1000ms)
+    // Massive zoom in, flash white
+    tl.add({
+        targets: '#main-menu-container',
+        scale: 10, // WARP SPEED
+        opacity: 0,
+        filter: 'blur(20px)', // Motion blur
+        duration: 600,
+        easing: 'easeInExpo'
+    }, 500);
+
+    tl.add({
+        targets: '#transition-flash',
+        opacity: [0, 1],
+        duration: 400,
+        easing: 'easeInQuad'
+    }, 600);
   };
 
   const interactiveRef = useRef<HTMLButtonElement>(null);
@@ -256,6 +304,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
   return (
     <div id="main-menu-container" className="relative w-full h-full animate-color-cycle overflow-hidden text-white font-sans flex flex-col items-center justify-center bg-black perspective-2000">
       
+      {/* TRANSITION FLASH OVERLAY - Initially invisible */}
+      <div id="transition-flash" className="absolute inset-0 bg-white pointer-events-none opacity-0 z-[100] mix-blend-hard-light"></div>
+
       {/* 1. ANIMATED BACKGROUND LAYER */}
       
       {/* Scrolling Text Wall */}
@@ -267,7 +318,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                     style={{ animationDuration: `${40 + (i % 5) * 8}s` }}
                 >
                     {Array.from({ length: 8 }).map((_, j) => (
-                        <span key={j} className="mx-8 opacity-40">{text}</span>
+                        <span key={j} className={`mx-8 ${i % 2 === 0 ? 'opacity-40' : 'opacity-90'}`}>{text}</span>
                     ))}
                 </div>
             </div>
@@ -295,15 +346,32 @@ const MainMenu: React.FC<MainMenuProps> = ({
         {step === 'CONNECT' && (
           <div className="flex flex-col items-center justify-center w-full max-w-2xl relative z-20 px-4 gap-8">
             
-            {/* Title */}
-            <div className="stagger-enter w-full flex justify-center relative z-20">
-                <h1 className="text-6xl md:text-8xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-white via-green-200 to-green-900 font-sans tracking-tighter"
-                    style={{ 
-                        filter: 'drop-shadow(0 20px 50px rgba(34,197,94,0.4))',
-                        WebkitTextStroke: '1px rgba(255,255,255,0.8)',
-                    }}>
-                    GORBAGANA
-                </h1>
+            {/* Title with Tinted Window */}
+            <div className="stagger-enter w-full flex justify-center relative z-20 mb-6">
+                <div className="relative group">
+                    {/* Background Tinted Window */}
+                    <div className="absolute -inset-x-6 -inset-y-2 bg-gradient-to-b from-zinc-900/80 to-black/80 backdrop-blur-xl rounded-lg -skew-x-12 border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.6)] z-0 overflow-hidden group-hover:border-green-500/30 transition-colors duration-500">
+                        {/* Tech Patterns */}
+                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] opacity-10 mix-blend-overlay"></div>
+                        <div className="absolute top-0 w-full h-px bg-gradient-to-r from-transparent via-white/30 to-transparent"></div>
+                        
+                        {/* Decorative Status Indicators */}
+                        <div className="absolute top-2 right-4 flex gap-1">
+                            <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></div>
+                            <div className="w-1 h-1 bg-green-500/30 rounded-full"></div>
+                        </div>
+                        <div className="absolute bottom-2 left-4 text-[8px] font-mono text-zinc-600 tracking-widest">SYS.ONLINE</div>
+                    </div>
+
+                    {/* The Text */}
+                    <h1 className="relative z-10 text-6xl md:text-8xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-white via-green-200 to-green-900 font-sans tracking-tighter"
+                        style={{ 
+                            filter: 'drop-shadow(0 20px 50px rgba(34,197,94,0.2))',
+                            WebkitTextStroke: '1px rgba(255,255,255,0.8)',
+                        }}>
+                        GORBAGANA
+                    </h1>
+                </div>
             </div>
             
             {/* The Main Connect Component - Redesigned as a high-density 'Keycard' */}
@@ -448,134 +516,130 @@ const MainMenu: React.FC<MainMenuProps> = ({
           </GlassPanel>
         )}
 
-        {/* STEP 3: HUB - EFFICIENT 'COMMAND SQUARE' DASHBOARD */}
+        {/* STEP 3: HUB - COMPACT OPERATOR KEYCARD */}
         {step === 'HUB' && (
-          <div className="stagger-enter w-full max-w-5xl flex flex-col gap-4">
-              
-              {/* TOP STRIP: Info Ticker */}
-              <div className="flex justify-between items-center bg-zinc-900/60 backdrop-blur-md border border-white/5 rounded-lg px-4 py-2 text-[10px] font-mono text-zinc-400 uppercase tracking-widest">
-                  <div className="flex gap-4">
-                      <span className="text-white font-bold"><span className="text-green-500">ID:</span> {playerName}</span>
-                      <span><span className="text-purple-500">NET WORTH:</span> 42.5 SOL</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div> SERVER ONLINE
-                  </div>
-              </div>
+            <div className="stagger-enter w-full max-w-lg relative z-20 perspective-1000">
+                {/* The "Operator Card" */}
+                <div className="relative group bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl transform transition-transform duration-500 hover:scale-[1.02] hover:shadow-[0_0_50px_rgba(34,197,94,0.15)]">
+                    
+                    {/* 1. Header: Identity & Balance */}
+                    <div className="bg-black/40 p-4 flex justify-between items-center border-b border-white/5">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded bg-gradient-to-tr from-zinc-700 to-zinc-600 border border-white/10 flex items-center justify-center font-bold text-xs shadow-inner">
+                                {playerName.slice(0,2).toUpperCase()}
+                            </div>
+                            <div>
+                                <div className="text-[10px] text-zinc-500 font-mono uppercase font-bold tracking-widest">Operator</div>
+                                <div className="text-sm font-black text-white leading-none">{playerName}</div>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-[10px] text-zinc-500 font-mono uppercase font-bold tracking-widest">Balance</div>
+                            <div className="text-sm font-mono text-green-400 font-bold leading-none">42.5 SOL</div>
+                        </div>
+                    </div>
 
-              {/* MAIN SQUARE COMPONENT */}
-              <GlassPanel className="w-full p-0 !bg-zinc-900/80 !border-zinc-800 flex flex-col md:flex-row h-auto md:h-96">
-                  
-                  {/* LEFT: Configuration (Wager) */}
-                  <div className="w-full md:w-1/4 border-b md:border-b-0 md:border-r border-white/5 p-6 flex flex-col items-center justify-between bg-black/20">
-                      <div className="text-center w-full">
-                          <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-1">Risk Factor</h3>
-                          <div className="text-2xl font-black italic text-white tracking-tighter">{wager / 1000} SOL</div>
-                      </div>
+                    {/* 2. Main Visual Area */}
+                    <div className="p-6 relative overflow-hidden flex flex-col items-center gap-6">
+                         {/* Background Grid specific to card */}
+                         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:20px_20px] [mask-image:radial-gradient(ellipse_at_center,black_40%,transparent_100%)]"></div>
 
-                      {/* Vertical Slider Visual */}
-                      <div className="flex-1 w-12 bg-zinc-800 rounded-full my-4 relative overflow-hidden border border-white/5 group cursor-pointer shadow-inner">
-                          <div className="absolute bottom-0 w-full bg-gradient-to-t from-green-500 via-yellow-500 to-red-500 transition-all duration-200" style={{height: `${(wager/5000)*100}%`}}></div>
-                          <input 
-                            type="range" 
-                            min="10" 
-                            max="5000" 
-                            step="10" 
-                            value={wager} 
-                            onChange={(e) => setWager(parseInt(e.target.value))}
-                            className="absolute inset-0 w-full h-full opacity-0 cursor-ns-resize z-20"
-                            orient="vertical"
-                          />
-                          {/* Hash marks */}
-                          <div className="absolute inset-0 flex flex-col justify-between py-2 pointer-events-none opacity-30">
-                              {Array.from({length:10}).map((_,i) => <div key={i} className="w-full h-px bg-black"></div>)}
-                          </div>
-                      </div>
-                      
-                      <div className="text-[10px] font-mono text-zinc-600">DRAG TO ADJUST</div>
-                  </div>
+                         {/* Avatar & Wager Ring */}
+                         <div className="relative w-40 h-40 flex items-center justify-center z-10">
+                              {/* Spinning Ring based on Wager */}
+                              <svg className="absolute inset-0 w-full h-full animate-[spin_10s_linear_infinite]" viewBox="0 0 100 100">
+                                  <circle cx="50" cy="50" r="48" fill="none" stroke="#333" strokeWidth="1" strokeDasharray="4 4" opacity="0.5"/>
+                                  <circle cx="50" cy="50" r="48" fill="none" stroke={wager > 2500 ? "#ef4444" : "#4ade80"} strokeWidth="2" strokeDasharray={`${(wager/5000)*300} 1000`} strokeLinecap="round" className="transition-all duration-500 ease-out"/>
+                              </svg>
+                              
+                              {/* Avatar Container */}
+                              <div className="w-32 h-32 rounded-full bg-zinc-800 border-4 border-black shadow-[0_0_30px_rgba(0,0,0,0.5)] overflow-hidden relative group/avatar cursor-pointer transition-transform active:scale-95" onClick={() => setStep('SETUP')}>
+                                   {playerAvatar ? <img src={playerAvatar} className="w-full h-full object-cover"/> : <div className="w-full h-full flex items-center justify-center text-4xl">😎</div>}
+                                   <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity text-xs font-bold uppercase tracking-widest text-white">Edit</div>
+                              </div>
+                              
+                              {/* Wager Value Badge */}
+                              <div className="absolute -bottom-3 bg-black border border-white/20 px-3 py-1 rounded-full text-xs font-mono font-bold text-white shadow-xl">
+                                  {(wager/1000).toFixed(2)} SOL
+                              </div>
+                         </div>
 
-                  {/* CENTER: Main Action */}
-                  <div className="flex-1 p-8 flex flex-col items-center justify-center relative bg-[radial-gradient(circle_at_center,rgba(34,197,94,0.05),transparent_70%)]">
-                      
-                      {/* Integrated Title */}
-                      <h1 className="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-b from-white to-zinc-500 tracking-tighter mb-2 outline-text-white opacity-80"
-                          style={{ WebkitTextStroke: '1px rgba(255,255,255,0.5)' }}>
-                          SECTOR 7
-                      </h1>
-                      
-                      <div className="text-xs font-mono text-green-400 mb-8 bg-green-900/20 px-3 py-1 rounded border border-green-500/20">
-                          Deploying to Cluster Alpha
-                      </div>
+                         {/* Controls */}
+                         <div className="w-full space-y-4 z-10">
+                             <div className="space-y-2">
+                                 <div className="flex justify-between text-[10px] font-mono font-bold uppercase tracking-widest text-zinc-500">
+                                     <span>Risk Level</span>
+                                     <span className={wager > 3000 ? "text-red-400 animate-pulse" : "text-green-400"}>
+                                         {wager > 4000 ? "SUICIDE" : wager > 2500 ? "HIGH" : "NORMAL"}
+                                     </span>
+                                 </div>
+                                 <div className="relative h-8 bg-black/50 rounded-lg border border-white/10 overflow-hidden group/slider">
+                                     <input 
+                                        type="range" 
+                                        min="10" 
+                                        max="5000" 
+                                        step="10" 
+                                        value={wager}
+                                        onChange={(e) => setWager(parseInt(e.target.value))}
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+                                     />
+                                     <div className="absolute inset-0 bg-gradient-to-r from-green-500/20 via-yellow-500/20 to-red-500/20 w-full origin-left transition-transform duration-100" style={{transform: `scaleX(${wager/5000})`}}></div>
+                                     <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                         {/* Tick marks */}
+                                         <div className="flex justify-between w-full px-4 opacity-30">
+                                             {Array.from({length:20}).map((_,i) => <div key={i} className="w-px h-2 bg-white"></div>)}
+                                         </div>
+                                     </div>
+                                     {/* Slider Thumb Visual */}
+                                     <div className="absolute top-0 bottom-0 w-1 bg-white shadow-[0_0_10px_white] transition-all duration-75 pointer-events-none" style={{left: `${(wager/5000)*100}%`}}></div>
+                                 </div>
+                             </div>
+                         </div>
+                         
+                         {/* Quick Stats Row */}
+                         <div className="grid grid-cols-2 gap-2 w-full">
+                             <div className="bg-white/5 border border-white/5 rounded p-2 flex items-center gap-3 cursor-pointer hover:bg-white/10 transition-colors" onClick={() => setShowGorbag(true)}>
+                                 <div className="p-1.5 bg-yellow-500/20 rounded text-yellow-500"><Backpack size={14}/></div>
+                                 <div>
+                                     <div className="text-[9px] text-zinc-500 uppercase font-bold">Gorbag</div>
+                                     <div className="text-xs font-bold text-white">{inventory.length} Items</div>
+                                 </div>
+                             </div>
+                             <div className="bg-white/5 border border-white/5 rounded p-2 flex items-center gap-3">
+                                 <div className="p-1.5 bg-purple-500/20 rounded text-purple-500"><Globe size={14}/></div>
+                                 <div>
+                                     <div className="text-[9px] text-zinc-500 uppercase font-bold">Region</div>
+                                     <div className="text-xs font-bold text-white">US-East</div>
+                                 </div>
+                             </div>
+                         </div>
+                    </div>
 
-                      {/* The Big Button */}
-                      <button 
+                    {/* 3. Footer: DEPLOY BUTTON */}
+                    <button 
                         onClick={handleStartGame}
                         onMouseEnter={addHoverPhysics}
                         onMouseLeave={removeHoverPhysics}
-                        className="group relative w-48 h-48 rounded-full flex items-center justify-center bg-zinc-900 border-4 border-green-500/20 hover:border-green-400 shadow-[0_0_50px_rgba(0,0,0,0.5)] hover:shadow-[0_0_80px_rgba(34,197,94,0.3)] transition-all"
-                      >
-                          <div className="absolute inset-2 rounded-full border border-white/10 border-dashed animate-[spin_20s_linear_infinite]"></div>
-                          <div className="absolute inset-0 rounded-full bg-gradient-to-br from-green-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                          
-                          <div className="flex flex-col items-center relative z-10">
-                              <Zap size={40} className="text-white group-hover:text-green-400 mb-2 transition-colors fill-white group-hover:fill-green-400"/>
-                              <span className="font-black italic text-xl text-white tracking-tighter group-hover:scale-110 transition-transform">DEPLOY</span>
-                          </div>
-                      </button>
-                  </div>
+                        className="w-full bg-white text-black font-black text-xl py-6 hover:bg-green-400 transition-all duration-300 relative overflow-hidden group/btn z-20 border-t border-white/10"
+                    >
+                        <div className="absolute inset-0 flex items-center justify-center gap-2 z-10">
+                            <span className="tracking-tighter italic">INITIATE DROP</span>
+                            <Zap size={20} className="fill-black group-hover/btn:scale-125 transition-transform icon-target"/>
+                        </div>
+                        
+                        {/* Background Swipe Effect */}
+                        <div className="absolute inset-0 bg-green-500 translate-y-full group-hover/btn:translate-y-0 transition-transform duration-300 ease-in-out z-0"></div>
+                        
+                        {/* Loading/Spinning elements hidden but accessible for anime.js */}
+                        <div className="spin-target opacity-0 absolute top-2 right-2 w-4 h-4 border-2 border-black border-dashed rounded-full"></div>
+                    </button>
 
-                  {/* RIGHT: Stats / Inventory Preview */}
-                  <div className="w-full md:w-1/4 border-t md:border-t-0 md:border-l border-white/5 bg-black/20 flex flex-col">
-                      
-                      {/* Top Half: Stats */}
-                      <div className="flex-1 p-6 border-b border-white/5 flex flex-col justify-center">
-                           <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-2">
-                               <BarChart3 size={12}/> Global Stats
-                           </h3>
-                           <div className="space-y-3">
-                               <div className="flex justify-between items-center text-sm">
-                                   <span className="text-zinc-400">Players</span>
-                                   <span className="font-mono text-white font-bold">1,420</span>
-                               </div>
-                               <div className="flex justify-between items-center text-sm">
-                                   <span className="text-zinc-400">Pool</span>
-                                   <span className="font-mono text-green-400 font-bold">8.9k SOL</span>
-                               </div>
-                               <div className="flex justify-between items-center text-sm">
-                                   <span className="text-zinc-400">Gas</span>
-                                   <span className="font-mono text-yellow-400 font-bold">12 gwei</span>
-                               </div>
-                           </div>
-                      </div>
-
-                      {/* Bottom Half: Inventory Quick Look */}
-                      <div 
-                        className="flex-1 p-6 cursor-pointer hover:bg-white/5 transition-colors group"
-                        onClick={() => setShowGorbag(true)}
-                      >
-                           <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-3 flex items-center gap-2 group-hover:text-yellow-400 transition-colors">
-                               <Backpack size={12}/> Gorbag
-                           </h3>
-                           
-                           {inventory.length === 0 ? (
-                               <div className="h-full flex items-center justify-center text-zinc-600 text-xs font-mono italic border border-dashed border-zinc-700 rounded">
-                                   Empty
-                               </div>
-                           ) : (
-                               <div className="grid grid-cols-3 gap-2">
-                                   {inventory.slice(0, 6).map((item, i) => (
-                                       <div key={i} className="aspect-square bg-black/40 rounded border border-white/10 flex items-center justify-center text-lg">
-                                           {item.icon}
-                                       </div>
-                                   ))}
-                               </div>
-                           )}
-                      </div>
-                  </div>
-
-              </GlassPanel>
-          </div>
+                </div>
+                
+                {/* Decorative elements outside the card */}
+                <div className="absolute -top-4 -right-4 w-24 h-24 bg-green-500/20 blur-3xl -z-10 rounded-full animate-pulse"></div>
+                <div className="absolute -bottom-4 -left-4 w-32 h-32 bg-purple-500/20 blur-3xl -z-10 rounded-full animate-pulse delay-700"></div>
+            </div>
         )}
 
         {/* GORBAG OVERLAY - Unchanged, just better blur */}
